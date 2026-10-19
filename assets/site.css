@@ -278,3 +278,9 @@ td.num,th.num{font-variant-numeric:tabular-nums;white-space:nowrap}
 @media (max-width:560px){.mnav{margin-left:auto}.top .mnav ~ .btn{margin-left:0}}
 @media (max-width:1280px){.top .phone{order:2;margin-left:auto}.mnav{order:3}.top .wrap>.btn{order:4}}
 @media (max-width:560px){.mnav{margin-left:auto}}
+
+.top .lang{font:500 .82rem var(--f-mono);color:inherit;text-decoration:none;border:1px solid rgba(255,255,255,.3);border-radius:var(--r);padding:7px 10px;white-space:nowrap;flex:none}
+.top .lang:hover{border-color:#fff}
+.top .lang{margin-left:auto}.top .lang + .phone{margin-left:0}
+@media (max-width:1280px){.top .lang{order:2}}
+@media (max-width:560px){.top .lang{margin-left:auto}.top .wrap .mnav{margin-left:0}}

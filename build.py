@@ -7,7 +7,13 @@ python3 build.py preview -> preview/   (ссылки на index.html, без а�
 import html, json, os, posixpath, re, shutil, sys, urllib.parse
 from datetime import date
 
-from pages import PAGES, NAV, FOOTER_NAV, SITE
+import pages as pages_ru
+from pages import SITE
+
+try:
+    import pages_kk
+except ImportError:
+    pages_kk = None
 
 MODE = sys.argv[1] if len(sys.argv) > 1 else "prod"
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -17,6 +23,30 @@ GA_ID = SITE["ga4"]
 YM_ID = SITE.get("metrika")
 WA = SITE["wa_number"]
 E = html.escape
+MOD = pages_ru
+LANGS_BUILT = ["ru"]
+
+# Языки: русский в корне, казахский под /kk/
+LANG = "ru"
+PREFIX = {"ru": "", "kk": "/kk"}
+T = {
+    "ru": {"home": "Главная", "crumbs": "Хлебные крошки", "menu": "Меню", "main_menu": "Главное меню", "to_home": "PANAGRO — на главную",
+           "sections": "Разделы сайта", "shop": "Магазин запчастей pana.kz", "write_wa": "Написать в WhatsApp", "locale": "ru_KZ",
+           "footer": "ТОО «PANAGRO service»<br>Алматы, Илийский тракт, 7<br>+7 777 113 84 33 · +7 (727) 973-22-56<br>info@panagro.kz<br>Офис: пн–пт 9:00–18:00 · аварийные заявки 24/7",
+           "switch": "Қаз", "switch_title": "Қазақша нұсқасы", "other": "kk"},
+    "kk": {"home": "Басты бет", "crumbs": "Навигация", "menu": "Мәзір", "main_menu": "Басты мәзір", "to_home": "PANAGRO — басты бетке",
+           "sections": "Сайт бөлімдері", "shop": "pana.kz қосалқы бөлшектер дүкені", "write_wa": "WhatsApp-қа жазу", "locale": "kk_KZ",
+           "footer": "«PANAGRO service» ЖШС<br>Алматы, Іле тас жолы, 7<br>+7 777 113 84 33 · +7 (727) 973-22-56<br>info@panagro.kz<br>Кеңсе: дс–жм 9:00–18:00 · апаттық өтінімдер 24/7",
+           "switch": "Рус", "switch_title": "Русская версия", "other": "ru"},
+}
+
+
+def site_path(path, lang=None):
+    """Путь страницы с языковым префиксом (ассеты и внешние ссылки не трогаем)."""
+    lang = lang or LANG
+    if not path.startswith("/") or path.startswith("/assets/"):
+        return path
+    return PREFIX[lang] + path
 
 
 def wa_link(text=""):
@@ -35,6 +65,8 @@ def rel(cur_url, target):
     if "#" in target:
         target, frag = target.split("#", 1)
         frag = "#" + frag
+    cur_url = site_path(cur_url)
+    target = site_path(target)
     cur_dir = posixpath.dirname(file_of(cur_url))
     if target.endswith("/"):
         dest = file_of(target)
@@ -124,11 +156,11 @@ def hero(p):
     cur = p["url"]
     crumbs = ""
     if p.get("crumbs"):
-        parts = [f'<a href="{rel(cur, "/")}">Главная</a>']
+        parts = [f'<a href="{rel(cur, "/")}">{T[LANG]["home"]}</a>']
         for name, url in p["crumbs"]:
             parts.append('<span aria-hidden="true">/</span>')
             parts.append(f'<a href="{rel(cur, url)}">{E(name)}</a>' if url else f"<span>{E(name)}</span>")
-        crumbs = f'<nav class="crumbs" aria-label="Хлебные крошки">{"".join(parts)}</nav>'
+        crumbs = f'<nav class="crumbs" aria-label="{T[LANG]['crumbs']}">{"".join(parts)}</nav>'
     img = p.get("img")
     if img:
         fig = (f'<figure class="scheme" style="margin:0"><img class="hero-photo" src="{rel(cur, "/assets/img/" + img[0])}" '
@@ -153,9 +185,9 @@ def jsonld(p):
         "openingHours": "Mo-Fr 09:00-18:00",
     }]
     if p.get("crumbs"):
-        items = [{"@type": "ListItem", "position": 1, "name": "Главная", "item": BASE + "/"}]
+        items = [{"@type": "ListItem", "position": 1, "name": T[LANG]["home"], "item": BASE + site_path("/")}]
         for i, (name, url) in enumerate(p["crumbs"], 2):
-            items.append({"@type": "ListItem", "position": i, "name": name, "item": BASE + (url or p["url"])})
+            items.append({"@type": "ListItem", "position": i, "name": name, "item": BASE + site_path(url or p["url"])})
         data.append({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": items})
     faqs = [s for s in p.get("sections", []) if s["type"] == "faq"]
     if faqs:
@@ -168,7 +200,19 @@ def jsonld(p):
 def layout(p, main_html):
     cur = p["url"]
     a = lambda path: rel(cur, path)
-    canonical = BASE + cur
+    canonical = BASE + site_path(cur)
+    t = T[LANG]
+    alt = "".join(f'<link rel="alternate" hreflang="{lg}" href="{BASE + site_path(cur, lg)}">' for lg in LANGS_BUILT) + \
+        (f'<link rel="alternate" hreflang="x-default" href="{BASE + site_path(cur, "ru")}">' if len(LANGS_BUILT) > 1 else "")
+    other = t["other"]
+    switch = ""
+    if other in LANGS_BUILT:
+        here = site_path(cur)
+        there = site_path(cur, other)
+        href = posixpath.relpath(file_of(there), posixpath.dirname(file_of(here)) or ".")
+        if MODE == "prod":
+            href = href[: -len("index.html")] or "./"
+        switch = f'<a class="lang" href="{href}" hreflang="{other}" lang="{other}" title="{t["switch_title"]}">{t["switch"]}</a>'
     ga = ""
     if MODE == "prod" and GA_ID:
         ga = (f'<script async src="https://www.googletagmanager.com/gtag/js?id={GA_ID}"></script>'
@@ -181,22 +225,22 @@ def layout(p, main_html):
                f'ym({YM_ID},"init",{{clickmap:true,trackLinks:true,accurateTrackBounce:true,webvisor:true}});window.YM_ID={YM_ID};</script>'
                f'<noscript><div><img src="https://mc.yandex.ru/watch/{YM_ID}" style="position:absolute;left:-9999px" alt=""></div></noscript>')
     verif = "".join(f'<meta name="{k}" content="{E(v)}">' for k, v in SITE.get("verification", {}).items() if v)
-    nav = "".join(f'<a href="{a(u)}"{" aria-current=page" if cur.startswith(u) and u != "/" else ""}>{E(n)}</a>' for n, u in NAV)
-    mnav = "".join(f'<a href="{a(u)}">{E(n)}</a>' for n, u in NAV)
-    fnav = "".join(f'<a href="{a(u)}">{E(n)}</a>' for n, u in FOOTER_NAV)
+    nav = "".join(f'<a href="{a(u)}"{" aria-current=page" if cur.startswith(u) and u != "/" else ""}>{E(n)}</a>' for n, u in MOD.NAV)
+    mnav = "".join(f'<a href="{a(u)}">{E(n)}</a>' for n, u in MOD.NAV)
+    fnav = "".join(f'<a href="{a(u)}">{E(n)}</a>' for n, u in MOD.FOOTER_NAV)
     logo_white = open(os.path.join(ROOT, "assets/img/panagro-logo-white.svg")).read().replace("<svg ", '<svg class="logo" ', 1)
     og_img = BASE + "/assets/img/" + (p.get("img") or ["panazoo-parallel-2x20.webp"])[0]
     robots = '<meta name="robots" content="noindex">' if p.get("noindex") or MODE != "prod" else ""
     return f"""<!doctype html>
-<html lang="ru">
+<html lang="{LANG}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>{E(p["title"])}</title>
 <meta name="description" content="{E(p["desc"])}">
-<link rel="canonical" href="{canonical}">
+<link rel="canonical" href="{canonical}">{alt}
 {robots}{verif}
-<meta property="og:type" content="website"><meta property="og:locale" content="ru_KZ"><meta property="og:site_name" content="PANAGRO">
+<meta property="og:type" content="website"><meta property="og:locale" content="{t["locale"]}"><meta property="og:site_name" content="PANAGRO">
 <meta property="og:title" content="{E(p["title"])}"><meta property="og:description" content="{E(p["desc"])}">
 <meta property="og:url" content="{canonical}"><meta property="og:image" content="{og_img}">
 <link rel="icon" type="image/svg+xml" href="{a("/assets/img/panagro-mark.svg")}">
@@ -210,10 +254,11 @@ def layout(p, main_html):
 </head>
 <body>
 <header class="top"><div class="wrap">
-<a class="logo-link" href="{a("/")}" aria-label="PANAGRO — на главную">{logo_white}</a>
-<nav class="nav" aria-label="Главное меню">{nav}</nav>
+<a class="logo-link" href="{a("/")}" aria-label="{t["to_home"]}">{logo_white}</a>
+<nav class="nav" aria-label="{t["main_menu"]}">{nav}</nav>
+{switch}
 <a class="phone" href="tel:+77771138433" style="color:inherit;text-decoration:none">+7 777 113 84 33</a>
-<details class="mnav"><summary>Меню</summary><div class="mnav-list">{mnav}</div></details>
+<details class="mnav"><summary>{t["menu"]}</summary><div class="mnav-list">{mnav}</div></details>
 <a class="btn btn-amber" href="{wa_link()}" target="_blank" rel="noopener">{WA_SVG}<span>WhatsApp</span></a>
 </div></header>
 <main>
@@ -221,10 +266,10 @@ def layout(p, main_html):
 </main>
 <footer><div class="wrap">
 {logo_white}
-<div>ТОО «PANAGRO service»<br>Алматы, Илийский тракт, 7<br>+7 777 113 84 33 · +7 (727) 973-22-56<br>info@panagro.kz<br>Офис: пн–пт 9:00–18:00 · аварийные заявки 24/7</div>
-<nav class="footer-nav" aria-label="Разделы сайта">{fnav}<a href="https://pana.kz/" target="_blank" rel="noopener">Магазин запчастей pana.kz</a></nav>
+<div>{t["footer"]}</div>
+<nav class="footer-nav" aria-label="{t["sections"]}">{fnav}<a href="https://pana.kz/" target="_blank" rel="noopener">{t["shop"]}</a></nav>
 </div></footer>
-<a class="float-wa" href="{wa_link()}" target="_blank" rel="noopener" aria-label="Написать в WhatsApp">{WA_SVG.replace('class="wa"', 'style="width:30px;height:30px;color:#fff"')}</a>
+<a class="float-wa" href="{wa_link()}" target="_blank" rel="noopener" aria-label="{t["write_wa"]}">{WA_SVG.replace('class="wa"', 'style="width:30px;height:30px;color:#fff"')}</a>
 <script src="{a("/assets/site.js")}" defer></script>
 </body>
 </html>
@@ -240,21 +285,36 @@ def build_page(p):
 
 
 def main():
+    global LANG, MOD, LANGS_BUILT
     if os.path.exists(OUT):
         shutil.rmtree(OUT)
     os.makedirs(OUT)
     shutil.copytree(os.path.join(ROOT, "assets"), os.path.join(OUT, "assets"))
-    for p in PAGES:
-        path = os.path.join(OUT, file_of(p["url"]))
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        open(path, "w").write(build_page(p))
+    mods = {"ru": pages_ru}
+    if pages_kk is not None:
+        mods["kk"] = pages_kk
+    LANGS_BUILT = list(mods)
+    count = 0
+    for LANG, MOD in mods.items():
+        for p in MOD.PAGES:
+            path = os.path.join(OUT, file_of(site_path(p["url"])))
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            open(path, "w").write(build_page(p))
+            count += 1
     today = date.today().isoformat()
-    urls = "".join(f"<url><loc>{BASE}{p['url']}</loc><lastmod>{today}</lastmod></url>" for p in PAGES if not p.get("noindex"))
-    open(os.path.join(OUT, "sitemap.xml"), "w").write(f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>\n')
+    urls = ""
+    for p in pages_ru.PAGES:
+        if p.get("noindex"):
+            continue
+        alts = "".join(f'<xhtml:link rel="alternate" hreflang="{lg}" href="{BASE + site_path(p["url"], lg)}"/>' for lg in LANGS_BUILT)
+        for lg in LANGS_BUILT:
+            urls += f"<url><loc>{BASE + site_path(p['url'], lg)}</loc><lastmod>{today}</lastmod>{alts if len(LANGS_BUILT) > 1 else ''}</url>"
+    open(os.path.join(OUT, "sitemap.xml"), "w").write('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
+                                                      f'xmlns:xhtml="http://www.w3.org/1999/xhtml">{urls}</urlset>\n')
     open(os.path.join(OUT, "robots.txt"), "w").write(f"User-agent: *\nAllow: /\n\nSitemap: {BASE}/sitemap.xml\n" if MODE == "prod" else "User-agent: *\nDisallow: /\n")
     if MODE == "prod":
         open(os.path.join(OUT, ".htaccess"), "w").write(open(os.path.join(ROOT, "htaccess.txt")).read())
-    print(f"{MODE}: {len(PAGES)} pages -> {os.path.normpath(OUT)}")
+    print(f"{MODE}: {count} pages ({', '.join(LANGS_BUILT)}) -> {os.path.normpath(OUT)}")
 
 
 if __name__ == "__main__":
