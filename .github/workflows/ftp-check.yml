@@ -1,0 +1,25 @@
+name: FTP check
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: List FTP folders
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_DIR: ${{ secrets.FTP_DIR }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+          L="set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate no; open -u \"$FTP_USERNAME\",\"$FTP_PASSWORD\" \"$FTP_SERVER\""
+          echo "::notice title=FTP_DIR::[$FTP_DIR]"
+          echo "::notice title=pwd::$(lftp -c "$L; pwd" 2>&1 | tr '\n' ' ')"
+          echo "::notice title=root::$(lftp -c "$L; cls -1a /" 2>&1 | tr '\n' ' ')"
+          echo "::notice title=home::$(lftp -c "$L; cls -1a" 2>&1 | tr '\n' ' ')"
+          echo "::notice title=httpdocs::$(lftp -c "$L; cls -1a httpdocs" 2>&1 | head -60 | tr '\n' ' ')"
+          echo "::notice title=FTP_DIR listing::$(lftp -c "$L; cls -1a \"$FTP_DIR\"" 2>&1 | head -60 | tr '\n' ' ')"
+          echo "::notice title=htaccess::$(lftp -c "$L; cat httpdocs/.htaccess" 2>&1 | head -40 | tr '\n' ' ')"
