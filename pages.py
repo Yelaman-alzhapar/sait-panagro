@@ -5,6 +5,7 @@ import re
 SITE = {
     "base": "https://panagro.kz",
     "ga4": "G-3W00RRZBPC",
+    "metrika": "113675003",
     "wa_number": "77771138433",
     # коды подтверждения Search Console / Вебмастера вписать сюда, когда Еламан их пришлёт
     "verification": {"google-site-verification": "", "yandex-verification": "efa266642434fcc2"},
@@ -782,8 +783,8 @@ def _cases_html():
 
 CONTACTS_HTML = """<div class="two" style="align-items:start">
 <div class="contacts" style="margin-top:0">
-<div><small style="color:var(--steel)">WhatsApp и мобильный</small><b style="color:var(--fg)">+7 777 113 84 33</b></div>
-<div><small style="color:var(--steel)">Офис</small><b style="color:var(--fg)">+7 (727) 973-22-56</b></div>
+<div><small style="color:var(--steel)">WhatsApp и мобильный</small><b style="color:var(--fg)"><a href="tel:+77771138433" style="color:inherit">+7 777 113 84 33</a></b></div>
+<div><small style="color:var(--steel)">Офис</small><b style="color:var(--fg)"><a href="tel:+77279732256" style="color:inherit">+7 (727) 973-22-56</a></b></div>
 <div><small style="color:var(--steel)">Почта</small><b style="color:var(--fg)">info@panagro.kz</b></div>
 <div><small style="color:var(--steel)">Адрес</small><b style="color:var(--fg)">Алматы, Илийский тракт, 7</b></div>
 <div><small style="color:var(--steel)">Режим работы</small><b style="color:var(--fg)">Офис: пн–пт 9:00–18:00 · аварийные заявки 24/7</b></div>

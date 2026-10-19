@@ -14,6 +14,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 OUT = os.environ.get("OUT_DIR") or os.path.join(ROOT, "..", "dist" if MODE == "prod" else "preview")
 BASE = SITE["base"]
 GA_ID = SITE["ga4"]
+YM_ID = SITE.get("metrika")
 WA = SITE["wa_number"]
 E = html.escape
 
@@ -172,6 +173,13 @@ def layout(p, main_html):
     if MODE == "prod" and GA_ID:
         ga = (f'<script async src="https://www.googletagmanager.com/gtag/js?id={GA_ID}"></script>'
               f"<script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}gtag('js',new Date());gtag('config','{GA_ID}');</script>")
+    if MODE == "prod" and YM_ID:  # METRIKA
+        ga += (f'<script>(function(m,e,t,r,i,k,a){{m[i]=m[i]||function(){{(m[i].a=m[i].a||[]).push(arguments)}};m[i].l=1*new Date();'
+               f'for(var j=0;j<document.scripts.length;j++){{if(document.scripts[j].src===r){{return;}}}}'
+               f'k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)}})'
+               f'(window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");'
+               f'ym({YM_ID},"init",{{clickmap:true,trackLinks:true,accurateTrackBounce:true,webvisor:true}});window.YM_ID={YM_ID};</script>'
+               f'<noscript><div><img src="https://mc.yandex.ru/watch/{YM_ID}" style="position:absolute;left:-9999px" alt=""></div></noscript>')
     verif = "".join(f'<meta name="{k}" content="{E(v)}">' for k, v in SITE.get("verification", {}).items() if v)
     nav = "".join(f'<a href="{a(u)}"{" aria-current=page" if cur.startswith(u) and u != "/" else ""}>{E(n)}</a>' for n, u in NAV)
     mnav = "".join(f'<a href="{a(u)}">{E(n)}</a>' for n, u in NAV)
@@ -204,7 +212,7 @@ def layout(p, main_html):
 <header class="top"><div class="wrap">
 <a class="logo-link" href="{a("/")}" aria-label="PANAGRO — на главную">{logo_white}</a>
 <nav class="nav" aria-label="Главное меню">{nav}</nav>
-<span class="phone">+7 777 113 84 33</span>
+<a class="phone" href="tel:+77771138433" style="color:inherit;text-decoration:none">+7 777 113 84 33</a>
 <details class="mnav"><summary>Меню</summary><div class="mnav-list">{mnav}</div></details>
 <a class="btn btn-amber" href="{wa_link()}" target="_blank" rel="noopener">{WA_SVG}<span>WhatsApp</span></a>
 </div></header>
