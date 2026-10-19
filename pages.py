@@ -7,7 +7,7 @@ SITE = {
     "ga4": "G-3W00RRZBPC",
     "wa_number": "77771138433",
     # коды подтверждения Search Console / Вебмастера вписать сюда, когда Еламан их пришлёт
-    "verification": {"google-site-verification": "", "yandex-verification": ""},
+    "verification": {"google-site-verification": "", "yandex-verification": "efa266642434fcc2"},
 }
 
 NAV = [
